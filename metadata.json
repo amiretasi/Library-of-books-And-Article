@@ -1,0 +1,5 @@
+{
+  "name": "Library of articles and books",
+  "description": "A personal library dashboard to visualize and analyze reading statistics, built with React and Tailwind CSS.",
+  "requestFramePermissions": []
+}
