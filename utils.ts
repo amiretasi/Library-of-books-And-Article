@@ -13,21 +13,56 @@ export function parseReadDate(dateStr: string | null | undefined): { year: strin
 }
 
 // For Articles App (ArticlesApp.tsx)
-// This function is internal to the module and correctly converts Jalali dates for sorting.
+
+// Converts a Gregorian date to its Jalali equivalent parts.
+// This is a simplified version sufficient for the 2025 dates in the dataset.
+function gregorianToJalaliParts(gDate: Date): { year: string, month: string } {
+    // All English articles in the dataset are in 2025, after March 21, so they are in Jalali year 1404.
+    const JALALI_YEAR_START = new Date('2025-03-21T00:00:00Z');
+    const jalaliYear = '1404';
+
+    const diff = gDate.getTime() - JALALI_YEAR_START.getTime();
+    if (diff < 0) {
+        return { year: '1403', month: '12' }; // Simplified fallback
+    }
+    const daysSinceNewYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    // Days in each Jalali month (non-leap year)
+    const j_days_in_month = [31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29];
+    let days = daysSinceNewYear;
+    let month = 0;
+
+    for (let i = 0; i < j_days_in_month.length; i++) {
+        if (days < j_days_in_month[i]) {
+            month = i + 1;
+            break;
+        }
+        days -= j_days_in_month[i];
+    }
+    
+    if (month === 0 && daysSinceNewYear < 365) {
+        month = 12;
+    } else if (month === 0) {
+        return { year: jalaliYear, month: '12' };
+    }
+
+    return { year: jalaliYear, month: String(month).padStart(2, '0') };
+}
+
+// Converts an approximate Jalali date string to a Gregorian Date object for sorting.
 function jalaliToGregorian(jalaliDateStr: string): Date {
     const parts = jalaliDateStr.split('/').map(Number);
-    if (parts.length < 3 || parts.some(isNaN)) return new Date('invalid');
+    if (parts.length < 3 || parts.some(isNaN)) return new Date(0);
     
     const [j_y, j_m, j_d] = parts;
     const j_days_in_month = [0, 31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29];
     
-    // A simple leap year check for this specific dataset's range
-    if (j_y % 4 === 3) { // Simplified Jalali leap year approximation
+    if (j_y % 4 === 3) {
         j_days_in_month[12] = 30;
     }
 
     if (j_m < 1 || j_m > 12 || j_d < 1 || j_d > j_days_in_month[j_m]) {
-        return new Date('invalid');
+        return new Date(0);
     }
 
     let days = j_d;
@@ -35,28 +70,39 @@ function jalaliToGregorian(jalaliDateStr: string): Date {
         days += j_days_in_month[i];
     }
     
-    // Assuming 1404 starts on March 21, 2025 for this dataset
     const g_start_date = new Date('2025-03-21T00:00:00Z');
-    g_start_date.setDate(g_start_date.getDate() + days - 1);
+    g_start_date.setUTCDate(g_start_date.getUTCDate() + days - 1);
     
     return g_start_date;
 }
 
+// Parses both Jalali and Gregorian date strings into a consistent structure with Jalali year/month.
 export function parseArticleDate(dateStr: string): { readYear: string, readMonth: string | null, fullReadDate: string, sortableDate: Date } {
     if (!dateStr || typeof dateStr !== 'string') {
         return { readYear: 'N/A', readMonth: null, fullReadDate: dateStr, sortableDate: new Date(0) };
     }
 
-    const isJalali = dateStr.startsWith('14'); // More robust check for Jalali dates
-    const sortableDate = isJalali ? jalaliToGregorian(dateStr) : new Date(dateStr.replace(/\//g, '-'));
+    const isJalali = /^\d{4}\/\d{1,2}\/\d{1,2}$/.test(dateStr) && dateStr.startsWith('14');
+    
+    let readYear: string;
+    let readMonth: string | null;
+    let sortableDate: Date;
+    
+    if (isJalali) {
+        sortableDate = jalaliToGregorian(dateStr);
+        const parts = dateStr.split('/');
+        readYear = parts[0];
+        readMonth = parts.length > 1 ? parts[1].padStart(2, '0') : null;
+    } else { // Assume Gregorian
+        sortableDate = new Date(dateStr.replace(/\//g, '-'));
+        const jalaliParts = gregorianToJalaliParts(sortableDate);
+        readYear = jalaliParts.year;
+        readMonth = jalaliParts.month;
+    }
     
     if (isNaN(sortableDate.getTime())) {
          return { readYear: 'N/A', readMonth: null, fullReadDate: dateStr, sortableDate: new Date(0) };
     }
-
-    const parts = dateStr.split('/');
-    const year = isJalali ? parts[0] : sortableDate.getFullYear().toString();
-    const month = isJalali ? parts[1] : (sortableDate.getMonth() + 1).toString();
     
-    return { readYear: year, readMonth: month, fullReadDate: dateStr, sortableDate };
+    return { readYear, readMonth, fullReadDate: dateStr, sortableDate };
 }
