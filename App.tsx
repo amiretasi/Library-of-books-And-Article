@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useState } from 'react';
 // Book imports
 import { booksData } from './constants.ts';
@@ -29,8 +30,23 @@ import ArticleTimeline from './components/ArticleTimeline.tsx';
 
 
 const App: React.FC = () => {
-    const [isIntroFinished, setIsIntroFinished] = useState(false);
+    const [isContentLoaded, setIsContentLoaded] = useState(false);
+    const [isIntroSequenceFinished, setIsIntroSequenceFinished] = useState(false);
     const [view, setView] = useState<'books' | 'articles'>('books');
+
+    // This function is called by Intro.tsx after its CSS transition (1s) is complete.
+    const handleAnimationFinish = () => {
+        // 1. Start fading in the main content (which takes 500ms).
+        setIsContentLoaded(true);
+        
+        // 2. After the content fade-in is complete, we mark the entire intro
+        //    sequence as finished. This will be passed to Intro.tsx to trigger
+        //    the CSS change from `position: fixed` to `position: absolute`.
+        setTimeout(() => {
+            setIsIntroSequenceFinished(true);
+        }, 500);
+    };
+
 
     // Book data processing
     const processedBookData: ProcessedBook[] = useMemo(() => {
@@ -112,8 +128,11 @@ const App: React.FC = () => {
 
     return (
         <>
-            <Intro onAnimationFinish={() => setIsIntroFinished(true)} />
-            <div className={!isIntroFinished ? 'content-hidden' : 'content-visible'}>
+            <Intro 
+                onAnimationFinish={handleAnimationFinish} 
+                isSequenceFinished={isIntroSequenceFinished} 
+            />
+            <div className={!isContentLoaded ? 'content-hidden' : 'content-visible'}>
                 {view === 'books' ? renderBookView() : renderArticleView()}
                 <Footer />
                 <ScrollButton />

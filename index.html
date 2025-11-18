@@ -100,6 +100,13 @@
             pointer-events: none; /* Allow clicks to pass through to content below */
         }
 
+        /* The key fix: change positioning after sequence is over to unblock the page */
+        .intro-container.sequence-finished {
+            position: absolute; /* Change from fixed to absolute */
+            height: 6rem; /* Give it a height similar to a header */
+            bottom: auto; /* Unset bottom from 'inset: 0' */
+        }
+
         .intro-text {
             font-size: clamp(2rem, 6vw, 5rem);
             font-weight: 800;
